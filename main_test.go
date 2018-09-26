@@ -1,4 +1,4 @@
-package pixsort
+package main
 
 import (
 	"testing"

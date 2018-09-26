@@ -1,4 +1,4 @@
-package pixsort
+package main
 
 import (
 	"bufio"
@@ -20,14 +20,14 @@ type sortRow struct {
 	end   int
 }
 
-type YSorter []color.Color
+type YSorter []color.RGBA
 
 func (r YSorter) Len() int      { return len(r) }
 func (r YSorter) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
 func (r YSorter) Less(i, j int) bool {
-	r1, g1, b1, _ := r[i].RGBA()
-	r2, g2, b2, _ := r[j].RGBA()
-	return (r1 + g1 + b1) < (r2 + g2 + b2)
+	rgba1 := r[i]
+	rgba2 := r[j]
+	return (rgba1.R + rgba1.G + rgba1.B) < (rgba2.R + rgba2.G + rgba2.B)
 }
 
 func getDrawableImage(src image.Image) *image.RGBA {
@@ -71,13 +71,13 @@ func fitImage(src, dest *image.RGBA) *image.RGBA {
 	return getDrawableImage(fit)
 }
 
-func getPixels(img *image.RGBA) [][]color.Color {
+func getPixels(img *image.RGBA) [][]color.RGBA {
 	bounds := img.Bounds()
 	width, height := bounds.Max.X, bounds.Max.Y
 
-	var pixels [][]color.Color
+	var pixels [][]color.RGBA
 	for y := 0; y < height; y++ {
-		var row []color.Color
+		var row []color.RGBA
 		for x := 0; x < width*4; x += 4 {
 			index := y * width * 4
 			row = append(row, color.RGBA{img.Pix[index+x], img.Pix[index+x+1], img.Pix[index+x+2], img.Pix[index+x+3]})
@@ -131,8 +131,9 @@ func GetMaskRows(maskImage *image.RGBA) [][]sortRow {
 		var inRow bool
 
 		for x := 0; x < width; x++ {
-			index := y*width*4 + 3
-			a := maskImage.Pix[index]
+			index := (y-maskBounds.Min.Y)*maskImage.Stride + (x-maskBounds.Min.X)*4
+			//log.Print(x, y, index)
+			a := maskImage.Pix[index+3]
 			if a == 0 {
 				if inRow {
 					rows = append(rows, sortRow{start, x})
@@ -156,7 +157,7 @@ func GetMaskRows(maskImage *image.RGBA) [][]sortRow {
 	return maskRows
 }
 
-func DoSort(baseImage *image.RGBA, basePixels [][]color.Color, maskRows [][]sortRow) {
+func DoSort(baseImage *image.RGBA, basePixels [][]color.RGBA, maskRows [][]sortRow) {
 	var wg sync.WaitGroup
 	for y := range maskRows {
 		wg.Add(1)
@@ -171,7 +172,6 @@ func DoSort(baseImage *image.RGBA, basePixels [][]color.Color, maskRows [][]sort
 					baseImage.Set(x, y, basePixels[y][x])
 				}
 			}
-			//log.Print(y)
 		}(y)
 	}
 	wg.Wait()
